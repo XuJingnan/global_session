@@ -4,7 +4,7 @@ import sys
 
 class MergeReducer(object):
 
-    def __init__(self):
+    def __init__(self, max_udwid_num=10000):
         self.field_sep = '\0'
         self.data_table_name = 'udwetl_global_session_data_merge'
         self.index_table_name = 'udwetl_global_session_index_merge'
@@ -13,6 +13,7 @@ class MergeReducer(object):
         self.values_number = 8
         self.previous_key = ''
         self.map = dict()
+        self.max_udwid_num = max_udwid_num
 
     def init_value(self, line):
         line = line.strip()
@@ -43,6 +44,8 @@ class MergeReducer(object):
             self.output()
             self.previous_key = self.index_key
         if self.udwid not in self.map:
+            if len(self.map) == self.max_udwid_num:
+                return 
             self.map[self.udwid] = [self.start_time, self.end_time]
         else:
             if self.start_time < self.map[self.udwid][0]:
@@ -53,9 +56,12 @@ class MergeReducer(object):
     # output format: index_key \t tablename \0 index_key \0 udwid \0 start_time \0 end_time \0
     # partition:                  day
     def output(self):
-        for udwid in self.map:
-            value = self.field_sep.join([self.table_name, self.previous_key, udwid, self.map[udwid][0], self.map[udwid][1], self.day])
-            print '\t'.join([self.previous_key, value])
+        if len(self.map) == self.max_udwid_num:
+            self.stderr_out('index key %s'%self.previous_key, '>= %d udwids' % self.max_udwid_num)
+        else:
+            for udwid in self.map:
+                value = self.field_sep.join([self.table_name, self.previous_key, udwid, self.map[udwid][0], self.map[udwid][1], self.day])
+                print '\t'.join([self.previous_key, value])
         self.map.clear()
 
     def __del__(self):
